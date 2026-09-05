@@ -15,8 +15,8 @@ locals {
   network_name             = "fiteks-dev"
   vpc_cidr                 = "10.0.0.0/16"
   az_count                 = 2
-  tf_state_bucket_name     = "REPLACE_WITH_TERRAFORM_STATE_BUCKET"
-  tf_state_lock_table_name = "REPLACE_WITH_TERRAFORM_LOCK_TABLE"
+  tf_state_bucket_name     = "nenavathsrinu-fiteks-terraform-state"
+  tf_state_lock_table_name = "fiteks-terraform-locks"
   tags = {
     Project     = "fiteks"
     Environment = "dev"
