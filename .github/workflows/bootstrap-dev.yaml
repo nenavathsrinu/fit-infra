@@ -1,0 +1,54 @@
+name: Bootstrap dev infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type bootstrap-dev to confirm resource creation
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: fit-infra-bootstrap-dev
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    if: inputs.confirm == 'bootstrap-dev'
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Initialize local bootstrap state
+        working-directory: environments/dev
+        run: terraform init -input=false
+
+      - name: Apply shared infrastructure
+        working-directory: environments/dev
+        env:
+          TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+          TF_VAR_cluster_name: ${{ vars.CLUSTER_NAME }}
+          TF_VAR_network_name: ${{ vars.NETWORK_NAME }}
+          TF_VAR_tf_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
+          TF_VAR_tf_state_lock_table_name: ${{ vars.TF_STATE_LOCK_TABLE_NAME }}
+        run: terraform apply -input=false -auto-approve
+
+      - name: Print integration outputs
+        working-directory: environments/dev
+        run: terraform output

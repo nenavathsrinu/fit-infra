@@ -1,0 +1,5 @@
+aws_region             = "us-east-1"
+cluster_name           = "fiteks-dev"
+network_name           = "fiteks-dev"
+tf_state_bucket_name   = "your-unique-fiteks-terraform-state-bucket"
+tf_state_lock_table_name = "fiteks-terraform-locks"
