@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy-dev:
-    name: Deploy dev
+  plan-dev:
+    name: Plan dev
     if: startsWith(github.ref_name, 'feature-')
     runs-on: ubuntu-latest
     environment: dev
@@ -21,22 +21,71 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v5
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
+      - uses: hashicorp/setup-terraform@v3
       - name: Initialize Terraform
         working-directory: environments/dev
         run: terraform init -input=false -reconfigure -backend-config="bucket=${{ vars.TF_STATE_BUCKET_NAME }}" -backend-config="dynamodb_table=${{ vars.TF_STATE_LOCK_TABLE_NAME }}" -backend-config="region=${{ env.AWS_REGION }}"
-
-      - name: Apply dev infrastructure
+      - name: Create plan
         working-directory: environments/dev
-        run: terraform apply -input=false -auto-approve
+        run: terraform plan -input=false -out=tfplan
+      - name: Upload plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-tfplan-${{ github.run_id }}
+          path: environments/dev/tfplan
+
+  apply-dev:
+    name: Apply dev
+    needs: plan-dev
+    if: needs.plan-dev.result == 'success'
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/download-artifact@v4
+        with:
+          name: dev-tfplan-${{ github.run_id }}
+          path: environments/dev
+      - name: Initialize Terraform
+        working-directory: environments/dev
+        run: terraform init -input=false -reconfigure -backend-config="bucket=${{ vars.TF_STATE_BUCKET_NAME }}" -backend-config="dynamodb_table=${{ vars.TF_STATE_LOCK_TABLE_NAME }}" -backend-config="region=${{ env.AWS_REGION }}"
+      - name: Apply plan
+        working-directory: environments/dev
+        run: terraform apply -input=false tfplan
+
+  notify-dev:
+    name: Notify dev deployment
+    needs: [plan-dev, apply-dev]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish result
+        env:
+          PLAN_RESULT: ${{ needs.plan-dev.result }}
+          APPLY_RESULT: ${{ needs.apply-dev.result }}
+        run: |
+          echo "## Dev deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Plan: ${PLAN_RESULT}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Apply: ${APPLY_RESULT}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Send Slack notification when configured
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PLAN_RESULT: ${{ needs.plan-dev.result }}
+          APPLY_RESULT: ${{ needs.apply-dev.result }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            curl --fail --silent --show-error -X POST -H 'Content-type: application/json' --data "{\"text\":\"fit-infra dev: plan=${PLAN_RESULT}, apply=${APPLY_RESULT}\"}" "$SLACK_WEBHOOK_URL"
+          fi

@@ -1,0 +1,56 @@
+name: Destroy infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to destroy
+        required: true
+        type: choice
+        options:
+          - dev
+          - devint
+          - prod
+      confirm:
+        description: Type DESTROY to confirm
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: destroy-infrastructure-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  destroy:
+    name: Destroy ${{ inputs.environment }}
+    if: inputs.confirm == 'DESTROY'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment == 'prod' && 'production' || inputs.environment }}
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TERRAFORM_DIRECTORY: environments/${{ inputs.environment }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Initialize Terraform
+        working-directory: ${{ env.TERRAFORM_DIRECTORY }}
+        run: terraform init -input=false -reconfigure -backend-config="bucket=${{ vars.TF_STATE_BUCKET_NAME }}" -backend-config="dynamodb_table=${{ vars.TF_STATE_LOCK_TABLE_NAME }}" -backend-config="region=${{ env.AWS_REGION }}"
+
+      - name: Destroy infrastructure
+        working-directory: ${{ env.TERRAFORM_DIRECTORY }}
+        run: terraform destroy -input=false -auto-approve

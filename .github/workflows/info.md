@@ -9,6 +9,9 @@
 - Manually run `feature.yaml` from a `feature-*` branch to deploy only `dev`.
 - Merge a release pull request into a `release-*` branch to automatically run `release.yaml` and deploy `devint`.
 - Manually run `deploy.yaml` for production.
+- Manually run `destroy.yaml`, select an environment, and type `DESTROY` for destructive cleanup.
+
+The `destroy.yaml` workflow is intentionally separate from deployment workflows. It requires the same AWS OIDC role and state variables for the selected environment.
 
 ## Bootstrap
 
