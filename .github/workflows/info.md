@@ -32,6 +32,8 @@ Deployment emails are sent to `alexinvi@gmail.com`. Add these secrets to each de
 - `SMTP_PASSWORD`
 - `SMTP_FROM`
 
+`SMTP_FROM` may be omitted; the workflow falls back to `SMTP_USERNAME` as the sender.
+
 Environment-specific Terraform values are defined directly in each environment's `main.tf`. The existing S3 bucket and DynamoDB table are used only as the remote Terraform backend; this repository does not create or destroy them.
 
 ## Branch rules

@@ -88,7 +88,7 @@ jobs:
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: fit-infra production deployment
           to: alexinvi@gmail.com
-          from: ${{ secrets.SMTP_FROM }}
+          from: ${{ secrets.SMTP_FROM || secrets.SMTP_USERNAME }}
           body: |
             Production deployment completed.
             Plan: ${{ needs.plan-prod.result }}
