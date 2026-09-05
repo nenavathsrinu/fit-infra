@@ -6,8 +6,6 @@ This repository owns shared AWS infrastructure used by `fit-eks` and `fiteks-api
 
 ```text
 modules/vpc.tf           VPC, subnets, NAT, and route tables
-modules/s3.tf            Terraform state S3 bucket
-modules/dynamodb.tf      Terraform state lock table
 modules/iam.tf           EKS control plane and node IAM roles
 environments/dev/        Development composition and inputs
 environments/devint/     Development integration composition and inputs
@@ -30,5 +28,6 @@ After apply, record these outputs for `fit-eks`:
 - `private_subnet_ids`
 - `cluster_role_arn`
 - `node_role_arn`
+
+The existing S3 bucket and DynamoDB table are used as remote Terraform state. They are not managed by this repository.
 - new
-The S3 bucket and DynamoDB table outputs are used when configuring remote backends in the other repositories.

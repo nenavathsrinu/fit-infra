@@ -45,12 +45,6 @@ jobs:
         working-directory: environments/dev
         run: terraform apply -input=false -auto-approve
 
-      - name: Upload bootstrap state to S3
-        working-directory: environments/dev
-        env:
-          AWS_REGION: ${{ env.AWS_REGION }}
-          TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
-        run: aws s3 cp terraform.tfstate "s3://${TF_STATE_BUCKET_NAME}/fit-infra/dev/terraform.tfstate" --region "${AWS_REGION}"
 
       - name: Print integration outputs
         working-directory: environments/dev

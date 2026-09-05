@@ -15,8 +15,6 @@ locals {
   network_name             = "fiteks-prod"
   vpc_cidr                 = "10.2.0.0/16"
   az_count                 = 2
-  tf_state_bucket_name     = "nenavathsrinu-fiteks-terraform-state"
-  tf_state_lock_table_name = "fiteks-terraform-locks"
   tags = {
     Project     = "fiteks"
     Environment = "prod"
@@ -35,7 +33,5 @@ module "infrastructure" {
   network_name             = local.network_name
   vpc_cidr                 = local.vpc_cidr
   az_count                 = local.az_count
-  tf_state_bucket_name     = local.tf_state_bucket_name
-  tf_state_lock_table_name = local.tf_state_lock_table_name
   tags                     = local.tags
 }

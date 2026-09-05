@@ -29,7 +29,7 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
       - name: Initialize Terraform
         working-directory: environments/dev
-        run: terraform init -input=false -reconfigure -backend-config="bucket=${{ vars.TF_STATE_BUCKET_NAME }}" -backend-config="dynamodb_table=${{ vars.TF_STATE_LOCK_TABLE_NAME }}" -backend-config="region=${{ env.AWS_REGION }}"
+        run: terraform init -input=false -reconfigure
       - name: Create plan
         working-directory: environments/dev
         run: terraform plan -input=false -out=tfplan
@@ -61,7 +61,7 @@ jobs:
           path: environments/dev
       - name: Initialize Terraform
         working-directory: environments/dev
-        run: terraform init -input=false -reconfigure -backend-config="bucket=${{ vars.TF_STATE_BUCKET_NAME }}" -backend-config="dynamodb_table=${{ vars.TF_STATE_LOCK_TABLE_NAME }}" -backend-config="region=${{ env.AWS_REGION }}"
+        run: terraform init -input=false -reconfigure
       - name: Apply plan
         working-directory: environments/dev
         run: terraform apply -input=false tfplan

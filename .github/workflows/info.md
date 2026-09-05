@@ -15,7 +15,7 @@ The `destroy.yaml` workflow is intentionally separate from deployment workflows.
 
 ## Bootstrap
 
-`bootstrap-dev.yaml` is a manual, one-time workflow for creating the initial VPC, S3 state bucket, DynamoDB lock table, and IAM roles.
+`bootstrap-dev.yaml` is a manual workflow for creating the initial VPC and IAM roles.
 
 Required `dev` environment secret:
 
@@ -25,9 +25,7 @@ Add `AWS_DEPLOY_ROLE_ARN` separately to both the `dev` and `devint` GitHub envir
 
 The deploy role must trust GitHub Actions OIDC and allow the shared infrastructure resources to be created.
 
-Environment-specific Terraform values are defined directly in each environment's `main.tf`. Workflow environment variables provide `AWS_REGION`, `TF_STATE_BUCKET_NAME`, and `TF_STATE_LOCK_TABLE_NAME` for AWS and remote state initialization.
-
-The S3 state bucket and DynamoDB lock table must exist before running `feature.yaml` or `deploy.yaml`. Do not use local state for routine CI/CD because GitHub-hosted runners are ephemeral.
+Environment-specific Terraform values are defined directly in each environment's `main.tf`. The existing S3 bucket and DynamoDB table are used only as the remote Terraform backend; this repository does not create or destroy them.
 
 ## Branch rules
 
