@@ -1,22 +1,23 @@
-name: Feature infrastructure
+name: Release infrastructure
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - 'release-*'
 
 permissions:
   contents: read
   id-token: write
 
 concurrency:
-  group: feature-infrastructure-${{ github.ref }}
+  group: release-infrastructure-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  deploy-dev:
-    name: Deploy dev
-    if: startsWith(github.ref_name, 'feature-')
+  deploy-devint:
+    name: Deploy devint
     runs-on: ubuntu-latest
-    environment: dev
+    environment: devint
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
 
@@ -34,11 +35,11 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Initialize Terraform
-        working-directory: environments/dev
+        working-directory: environments/devint
         run: terraform init -input=false -reconfigure -backend-config="bucket=${{ vars.TF_STATE_BUCKET_NAME }}" -backend-config="dynamodb_table=${{ vars.TF_STATE_LOCK_TABLE_NAME }}" -backend-config="region=${{ env.AWS_REGION }}"
 
-      - name: Apply dev infrastructure
-        working-directory: environments/dev
+      - name: Apply devint infrastructure
+        working-directory: environments/devint
         env:
           TF_VAR_aws_region: ${{ env.AWS_REGION }}
           TF_VAR_cluster_name: ${{ vars.CLUSTER_NAME }}

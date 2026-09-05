@@ -4,6 +4,12 @@
 
 `ci.yaml` runs Terraform formatting and validates `dev`, `devint`, and `prod` on pull requests and pushes to `main`.
 
+## Deployment flow
+
+- Manually run `feature.yaml` from a `feature-*` branch to deploy only `dev`.
+- Merge a release pull request into a `release-*` branch to automatically run `release.yaml` and deploy `devint`.
+- Manually run `deploy.yaml` for production.
+
 ## Bootstrap
 
 `bootstrap-dev.yaml` is a manual, one-time workflow for creating the initial VPC, S3 state bucket, DynamoDB lock table, and IAM roles.
