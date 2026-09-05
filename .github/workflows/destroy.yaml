@@ -47,6 +47,19 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: DESTRUCTIVE OPERATION WARNING
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          echo "::warning title=DESTRUCTIVE OPERATION::Terraform will destroy all managed resources in ${TARGET_ENVIRONMENT}."
+          {
+            echo "## WARNING: DESTRUCTIVE OPERATION"
+            echo ""
+            echo "Terraform destroy will permanently remove all managed resources in **${TARGET_ENVIRONMENT}**."
+            echo ""
+            echo "The S3 backend bucket and DynamoDB lock table are not managed by this repository."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Initialize Terraform
         working-directory: ${{ env.TERRAFORM_DIRECTORY }}
         run: terraform init -input=false -reconfigure
