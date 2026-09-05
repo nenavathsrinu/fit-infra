@@ -1,24 +1,23 @@
-name: Deploy prod infrastructure
+name: Release infrastructure
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches:
+      - 'release-*'
 
 permissions:
   contents: read
   id-token: write
 
 concurrency:
-  group: deploy-prod-infrastructure
+  group: release-infrastructure-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  plan-prod:
-    name: Plan prod
-    if: github.ref == 'refs/heads/main'
+  plan-devint:
+    name: Plan devint
     runs-on: ubuntu-latest
-    environment: production
+    environment: devint
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
     steps:
@@ -29,22 +28,22 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
       - uses: hashicorp/setup-terraform@v3
       - name: Initialize Terraform
-        working-directory: environments/prod
+        working-directory: environments/devint
         run: terraform init -input=false -reconfigure
       - name: Create plan
-        working-directory: environments/prod
+        working-directory: environments/devint
         run: terraform plan -input=false -out=tfplan
       - uses: actions/upload-artifact@v4
         with:
-          name: prod-tfplan-${{ github.run_id }}
-          path: environments/prod/tfplan
+          name: devint-tfplan-${{ github.run_id }}
+          path: environments/devint/tfplan
 
-  apply-prod:
-    name: Apply prod
-    needs: plan-prod
-    if: needs.plan-prod.result == 'success'
+  apply-devint:
+    name: Apply devint
+    needs: plan-devint
+    if: needs.plan-devint.result == 'success'
     runs-on: ubuntu-latest
-    environment: production
+    environment: devint
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
     steps:
@@ -56,27 +55,27 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
       - uses: actions/download-artifact@v4
         with:
-          name: prod-tfplan-${{ github.run_id }}
-          path: environments/prod
+          name: devint-tfplan-${{ github.run_id }}
+          path: environments/devint
       - name: Initialize Terraform
-        working-directory: environments/prod
+        working-directory: environments/devint
         run: terraform init -input=false -reconfigure
       - name: Apply plan
-        working-directory: environments/prod
+        working-directory: environments/devint
         run: terraform apply -input=false tfplan
 
-  notify-prod:
-    name: Notify prod deployment
-    needs: [plan-prod, apply-prod]
+  notify-devint:
+    name: Notify devint deployment
+    needs: [plan-devint, apply-devint]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Publish result
         env:
-          PLAN_RESULT: ${{ needs.plan-prod.result }}
-          APPLY_RESULT: ${{ needs.apply-prod.result }}
+          PLAN_RESULT: ${{ needs.plan-devint.result }}
+          APPLY_RESULT: ${{ needs.apply-devint.result }}
         run: |
-          echo "## Production deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Devint deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "- Plan: ${PLAN_RESULT}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Apply: ${APPLY_RESULT}" >> "$GITHUB_STEP_SUMMARY"
       - name: Send deployment email
@@ -86,10 +85,10 @@ jobs:
           server_port: 465
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: fit-infra production deployment
+          subject: fit-infra devint deployment
           to: alexinvi@gmail.com
           from: ${{ secrets.SMTP_FROM }}
           body: |
-            Production deployment completed.
-            Plan: ${{ needs.plan-prod.result }}
-            Apply: ${{ needs.apply-prod.result }}
+            Devint deployment completed.
+            Plan: ${{ needs.plan-devint.result }}
+            Apply: ${{ needs.apply-devint.result }}

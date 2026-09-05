@@ -1,5 +1,0 @@
-aws_region               = "us-east-1"
-cluster_name             = "fiteks-prod"
-network_name             = "fiteks-prod"
-tf_state_bucket_name     = "your-prod-terraform-state-bucket"
-tf_state_lock_table_name = "fiteks-prod-terraform-locks"
