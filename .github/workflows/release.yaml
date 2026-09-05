@@ -4,6 +4,20 @@ on:
   push:
     branches:
       - 'release-*'
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Choose the devint operation
+        required: true
+        type: choice
+        default: apply
+        options:
+          - apply
+          - destroy
+      confirm_destroy:
+        description: Type DESTROY only when destroying devint
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -16,6 +30,7 @@ concurrency:
 jobs:
   plan-devint:
     name: Plan devint
+    if: github.event_name == 'push' || inputs.operation == 'apply'
     runs-on: ubuntu-latest
     environment: devint
     env:
@@ -41,7 +56,7 @@ jobs:
   apply-devint:
     name: Apply devint
     needs: plan-devint
-    if: needs.plan-devint.result == 'success'
+    if: needs.plan-devint.result == 'success' && (github.event_name == 'push' || inputs.operation == 'apply')
     runs-on: ubuntu-latest
     environment: devint
     env:
@@ -67,7 +82,7 @@ jobs:
   notify-devint:
     name: Notify devint deployment
     needs: [plan-devint, apply-devint]
-    if: always()
+    if: always() && (github.event_name == 'push' || inputs.operation == 'apply')
     runs-on: ubuntu-latest
     steps:
       - name: Publish result
@@ -92,3 +107,32 @@ jobs:
             Devint deployment completed.
             Plan: ${{ needs.plan-devint.result }}
             Apply: ${{ needs.apply-devint.result }}
+
+  destroy-devint:
+    name: Destroy devint
+    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'destroy' && inputs.confirm_destroy == 'DESTROY'
+    runs-on: ubuntu-latest
+    environment: devint
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Destructive operation warning
+        run: |
+          echo "::warning title=DESTRUCTIVE OPERATION::Terraform will destroy the devint environment."
+          echo "## WARNING: DESTROY DEVINT" >> "$GITHUB_STEP_SUMMARY"
+          echo "Terraform destroy will permanently remove managed devint resources." >> "$GITHUB_STEP_SUMMARY"
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Initialize Terraform
+        working-directory: environments/devint
+        run: terraform init -input=false -reconfigure
+      - name: Destroy devint infrastructure
+        working-directory: environments/devint
+        run: terraform destroy -input=false -auto-approve
