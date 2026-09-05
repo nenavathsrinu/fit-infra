@@ -20,6 +20,8 @@ Required `dev` environment secret:
 
 - `AWS_DEPLOY_ROLE_ARN`
 
+Add `AWS_DEPLOY_ROLE_ARN` separately to both the `dev` and `devint` GitHub environments. The value must be the ARN of an IAM role that trusts the repository's GitHub OIDC subject and allows the required AWS actions.
+
 The deploy role must trust GitHub Actions OIDC and allow the shared infrastructure resources to be created.
 
 The S3 state bucket and DynamoDB lock table must exist before running `feature.yaml` or `deploy.yaml`. Do not use local state for routine CI/CD because GitHub-hosted runners are ephemeral.
