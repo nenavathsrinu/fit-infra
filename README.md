@@ -28,5 +28,5 @@ After apply, record these outputs for `fit-eks`:
 - `private_subnet_ids`
 - `cluster_role_arn`
 - `node_role_arn`
-
+- new
 The S3 bucket and DynamoDB table outputs are used when configuring remote backends in the other repositories.
