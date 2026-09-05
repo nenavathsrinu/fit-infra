@@ -1,5 +1,0 @@
-aws_region              = "us-east-1"
-cluster_name            = "fiteks-devint"
-network_name            = "fiteks-devint"
-tf_state_bucket_name    = "your-terraform-state-bucket"
-tf_state_lock_table_name = "fiteks-terraform-locks"

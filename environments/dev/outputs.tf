@@ -23,12 +23,3 @@ output "node_role_arn" {
   value       = module.infrastructure.node_role_arn
 }
 
-output "tf_state_bucket_name" {
-  description = "Terraform state S3 bucket name."
-  value       = module.infrastructure.tf_state_bucket_name
-}
-
-output "tf_state_lock_table_name" {
-  description = "Terraform lock DynamoDB table name."
-  value       = module.infrastructure.tf_state_lock_table_name
-}

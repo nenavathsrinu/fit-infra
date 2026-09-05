@@ -30,16 +30,6 @@ variable "az_count" {
   }
 }
 
-variable "tf_state_bucket_name" {
-  description = "Globally unique Terraform state bucket name."
-  type        = string
-}
-
-variable "tf_state_lock_table_name" {
-  description = "DynamoDB table used for Terraform state locking."
-  type        = string
-}
-
 variable "tags" {
   description = "Additional resource tags."
   type        = map(string)
