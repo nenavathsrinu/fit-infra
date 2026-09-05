@@ -1,4 +1,5 @@
 terraform {
+  # Pin Terraform and the AWS provider versions used by this environment.
   required_version = ">= 1.6.0"
 
   required_providers {
@@ -9,6 +10,7 @@ terraform {
   }
 }
 
+# Keep all devint-specific values in this environment entry point.
 locals {
   aws_region   = "us-east-1"
   cluster_name = "fiteks-devint"
@@ -21,10 +23,12 @@ locals {
   }
 }
 
+# Use the devint AWS account and region for all resources in this stack.
 provider "aws" {
   region = local.aws_region
 }
 
+# Reuse the shared VPC and IAM infrastructure module for devint.
 module "infrastructure" {
   source = "../../modules"
 
