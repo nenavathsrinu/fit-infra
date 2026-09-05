@@ -23,12 +23,3 @@ output "node_role_arn" {
   value       = aws_iam_role.nodes.arn
 }
 
-output "tf_state_bucket_name" {
-  description = "Terraform state S3 bucket name."
-  value       = aws_s3_bucket.state.bucket
-}
-
-output "tf_state_lock_table_name" {
-  description = "Terraform lock DynamoDB table name."
-  value       = aws_dynamodb_table.lock.name
-}

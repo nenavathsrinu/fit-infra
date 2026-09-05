@@ -1,6 +1,8 @@
 name: Deploy prod infrastructure
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -12,34 +14,82 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Deploy prod
+  plan-prod:
+    name: Plan prod
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
-
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
       - name: Initialize Terraform
         working-directory: environments/prod
-        run: terraform init -input=false -reconfigure -backend-config="bucket=${{ vars.TF_STATE_BUCKET_NAME }}" -backend-config="dynamodb_table=${{ vars.TF_STATE_LOCK_TABLE_NAME }}" -backend-config="region=${{ vars.AWS_REGION }}"
-
-      - name: Apply prod infrastructure
+        run: terraform init -input=false -reconfigure
+      - name: Create plan
         working-directory: environments/prod
+        run: terraform plan -input=false -out=tfplan
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prod-tfplan-${{ github.run_id }}
+          path: environments/prod/tfplan
+
+  apply-prod:
+    name: Apply prod
+    needs: plan-prod
+    if: needs.plan-prod.result == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/download-artifact@v4
+        with:
+          name: prod-tfplan-${{ github.run_id }}
+          path: environments/prod
+      - name: Initialize Terraform
+        working-directory: environments/prod
+        run: terraform init -input=false -reconfigure
+      - name: Apply plan
+        working-directory: environments/prod
+        run: terraform apply -input=false tfplan
+
+  notify-prod:
+    name: Notify prod deployment
+    needs: [plan-prod, apply-prod]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish result
         env:
-          TF_VAR_aws_region: ${{ vars.AWS_REGION }}
-          TF_VAR_cluster_name: ${{ vars.CLUSTER_NAME }}
-          TF_VAR_network_name: ${{ vars.NETWORK_NAME }}
-          TF_VAR_tf_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
-          TF_VAR_tf_state_lock_table_name: ${{ vars.TF_STATE_LOCK_TABLE_NAME }}
-        run: terraform apply -input=false -auto-approve
+          PLAN_RESULT: ${{ needs.plan-prod.result }}
+          APPLY_RESULT: ${{ needs.apply-prod.result }}
+        run: |
+          echo "## Production deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Plan: ${PLAN_RESULT}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Apply: ${APPLY_RESULT}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Send deployment email
+        uses: dawidd6/action-send-mail@v4
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: 465
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: fit-infra production deployment
+          to: alexinvi@gmail.com
+          from: ${{ secrets.SMTP_FROM || secrets.SMTP_USERNAME }}
+          body: |
+            Production deployment completed.
+            Plan: ${{ needs.plan-prod.result }}
+            Apply: ${{ needs.apply-prod.result }}
