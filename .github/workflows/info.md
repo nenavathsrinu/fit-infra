@@ -25,9 +25,17 @@ Add `AWS_DEPLOY_ROLE_ARN` separately to both the `dev` and `devint` GitHub envir
 
 The deploy role must trust GitHub Actions OIDC and allow the shared infrastructure resources to be created.
 
+Deployment emails are sent to `alexinvi@gmail.com`. Add these secrets to each deployment environment (`dev`, `devint`, and `production`):
+
+- `SMTP_SERVER`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
+- `SMTP_FROM`
+
 Environment-specific Terraform values are defined directly in each environment's `main.tf`. The existing S3 bucket and DynamoDB table are used only as the remote Terraform backend; this repository does not create or destroy them.
 
 ## Branch rules
 
-- `feature-*` branches run `feature.yaml` and apply both `dev` and `devint`.
+- `feature-*` branches run `feature.yaml` and can apply or destroy `dev`.
+- `release-*` branches run `release.yaml` and deploy `devint`.
 - `deploy.yaml` is manual and applies only `prod`.

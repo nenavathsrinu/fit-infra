@@ -79,3 +79,17 @@ jobs:
           echo "## Production deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "- Plan: ${PLAN_RESULT}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Apply: ${APPLY_RESULT}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Send deployment email
+        uses: dawidd6/action-send-mail@v4
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: 465
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: fit-infra production deployment
+          to: alexinvi@gmail.com
+          from: ${{ secrets.SMTP_FROM }}
+          body: |
+            Production deployment completed.
+            Plan: ${{ needs.plan-prod.result }}
+            Apply: ${{ needs.apply-prod.result }}

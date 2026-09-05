@@ -102,6 +102,20 @@ jobs:
           if [ -n "$SLACK_WEBHOOK_URL" ]; then
             curl --fail --silent --show-error -X POST -H 'Content-type: application/json' --data "{\"text\":\"fit-infra dev: plan=${PLAN_RESULT}, apply=${APPLY_RESULT}\"}" "$SLACK_WEBHOOK_URL"
           fi
+      - name: Send deployment email
+        uses: dawidd6/action-send-mail@v4
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: 465
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: fit-infra dev deployment
+          to: alexinvi@gmail.com
+          from: ${{ secrets.SMTP_FROM }}
+          body: |
+            Dev deployment completed.
+            Plan: ${{ needs.plan-dev.result }}
+            Apply: ${{ needs.apply-dev.result }}
 
   destroy-dev:
     name: Destroy dev
