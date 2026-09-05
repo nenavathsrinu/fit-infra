@@ -37,7 +37,7 @@ jobs:
 
       - name: Initialize local bootstrap state
         working-directory: environments/dev
-        run: terraform init -input=false
+        run: terraform init -backend=false -input=false
 
       - name: Apply shared infrastructure
         working-directory: environments/dev
@@ -48,6 +48,13 @@ jobs:
           TF_VAR_tf_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
           TF_VAR_tf_state_lock_table_name: ${{ vars.TF_STATE_LOCK_TABLE_NAME }}
         run: terraform apply -input=false -auto-approve
+
+      - name: Upload bootstrap state to S3
+        working-directory: environments/dev
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
+        run: aws s3 cp terraform.tfstate "s3://${TF_STATE_BUCKET_NAME}/fit-infra/dev/terraform.tfstate" --region "${AWS_REGION}"
 
       - name: Print integration outputs
         working-directory: environments/dev

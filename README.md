@@ -10,11 +10,13 @@ modules/s3.tf            Terraform state S3 bucket
 modules/dynamodb.tf      Terraform state lock table
 modules/iam.tf           EKS control plane and node IAM roles
 environments/dev/        Development composition and inputs
+environments/devint/     Development integration composition and inputs
+environments/prod/       Production composition and inputs
 ```
 
 ## Bootstrap
 
-The state bootstrap environment uses local state because an S3 backend cannot create its own bucket before initialization.
+The first state bootstrap uses local state because an S3 backend cannot create its own bucket before initialization. Run the bootstrap workflow once, then use the remote S3 state for normal CI/CD.
 
 ```bash
 cp environments/dev/terraform.tfvars.example environments/dev/terraform.tfvars

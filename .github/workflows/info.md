@@ -2,11 +2,11 @@
 
 ## CI
 
-`ci.yaml` runs Terraform formatting, initialization without a backend, and validation on pull requests and pushes to `main`.
+`ci.yaml` runs Terraform formatting and validates `dev`, `devint`, and `prod` on pull requests and pushes to `main`.
 
 ## Bootstrap
 
-`bootstrap-dev.yaml` is a manual, one-time workflow for creating the initial VPC, S3 state bucket, DynamoDB lock table, and IAM roles while the environment uses local state.
+`bootstrap-dev.yaml` is a manual, one-time workflow for creating the initial VPC, S3 state bucket, DynamoDB lock table, and IAM roles.
 
 Required `dev` environment variables:
 
@@ -22,4 +22,9 @@ Required `dev` environment secret:
 
 The deploy role must trust GitHub Actions OIDC and allow the shared infrastructure resources to be created.
 
-After bootstrap, migrate `environments/dev` from local state to the S3 bucket and DynamoDB table before using `plan-dev.yaml` repeatedly. Do not use local state for routine CI/CD because GitHub-hosted runners are ephemeral.
+The S3 state bucket and DynamoDB lock table must exist before running `feature.yaml` or `deploy.yaml`. Do not use local state for routine CI/CD because GitHub-hosted runners are ephemeral.
+
+## Branch rules
+
+- `feature-*` branches run `feature.yaml` and apply both `dev` and `devint`.
+- `deploy.yaml` is manual and applies only `prod`.

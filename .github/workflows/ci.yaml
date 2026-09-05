@@ -24,10 +24,14 @@ jobs:
       - name: Check formatting
         run: terraform fmt -check -recursive modules environments
 
-      - name: Initialize Terraform
+      - name: Validate dev
         working-directory: environments/dev
-        run: terraform init -backend=false -input=false
+        run: terraform init -backend=false -input=false && terraform validate
 
-      - name: Validate Terraform
-        working-directory: environments/dev
-        run: terraform validate
+      - name: Validate devint
+        working-directory: environments/devint
+        run: terraform init -backend=false -input=false && terraform validate
+
+      - name: Validate prod
+        working-directory: environments/prod
+        run: terraform init -backend=false -input=false && terraform validate

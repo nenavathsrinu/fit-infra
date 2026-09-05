@@ -1,4 +1,4 @@
-name: Plan dev infrastructure
+name: Deploy prod infrastructure
 
 on:
   workflow_dispatch:
@@ -8,13 +8,14 @@ permissions:
   id-token: write
 
 concurrency:
-  group: fit-infra-plan-dev
-  cancel-in-progress: true
+  group: deploy-prod-infrastructure
+  cancel-in-progress: false
 
 jobs:
-  plan:
+  deploy:
+    name: Deploy prod
     runs-on: ubuntu-latest
-    environment: dev
+    environment: production
 
     steps:
       - name: Checkout
@@ -30,15 +31,15 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Initialize Terraform
-        working-directory: environments/dev
-        run: terraform init -input=false
+        working-directory: environments/prod
+        run: terraform init -input=false -reconfigure -backend-config="bucket=${{ vars.TF_STATE_BUCKET_NAME }}" -backend-config="dynamodb_table=${{ vars.TF_STATE_LOCK_TABLE_NAME }}" -backend-config="region=${{ vars.AWS_REGION }}"
 
-      - name: Plan
-        working-directory: environments/dev
+      - name: Apply prod infrastructure
+        working-directory: environments/prod
         env:
           TF_VAR_aws_region: ${{ vars.AWS_REGION }}
           TF_VAR_cluster_name: ${{ vars.CLUSTER_NAME }}
           TF_VAR_network_name: ${{ vars.NETWORK_NAME }}
           TF_VAR_tf_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
           TF_VAR_tf_state_lock_table_name: ${{ vars.TF_STATE_LOCK_TABLE_NAME }}
-        run: terraform plan -input=false
+        run: terraform apply -input=false -auto-approve
