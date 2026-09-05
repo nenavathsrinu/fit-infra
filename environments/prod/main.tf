@@ -10,7 +10,7 @@ terraform {
 }
 
 locals {
-  aws_region   = "us-east-1"
+  aws_region   = "ap-south-1"
   cluster_name = "fiteks-prod"
   network_name = "fiteks-prod"
   vpc_cidr     = "10.2.0.0/16"
