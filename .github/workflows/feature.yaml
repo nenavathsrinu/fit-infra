@@ -2,6 +2,19 @@ name: Feature infrastructure
 
 on:
   workflow_dispatch:
+    inputs:
+      operation:
+        description: Choose the feature environment operation
+        required: true
+        type: choice
+        default: apply
+        options:
+          - apply
+          - destroy
+      confirm_destroy:
+        description: Type DESTROY only when destroying dev
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -14,7 +27,7 @@ concurrency:
 jobs:
   plan-dev:
     name: Plan dev
-    if: startsWith(github.ref_name, 'feature-')
+    if: startsWith(github.ref_name, 'feature-') && inputs.operation == 'apply'
     runs-on: ubuntu-latest
     environment: dev
     env:
@@ -42,7 +55,7 @@ jobs:
   apply-dev:
     name: Apply dev
     needs: plan-dev
-    if: needs.plan-dev.result == 'success'
+    if: needs.plan-dev.result == 'success' && inputs.operation == 'apply'
     runs-on: ubuntu-latest
     environment: dev
     env:
@@ -69,7 +82,7 @@ jobs:
   notify-dev:
     name: Notify dev deployment
     needs: [plan-dev, apply-dev]
-    if: always()
+    if: always() && inputs.operation == 'apply'
     runs-on: ubuntu-latest
     steps:
       - name: Publish result
@@ -89,3 +102,33 @@ jobs:
           if [ -n "$SLACK_WEBHOOK_URL" ]; then
             curl --fail --silent --show-error -X POST -H 'Content-type: application/json' --data "{\"text\":\"fit-infra dev: plan=${PLAN_RESULT}, apply=${APPLY_RESULT}\"}" "$SLACK_WEBHOOK_URL"
           fi
+
+  destroy-dev:
+    name: Destroy dev
+    if: startsWith(github.ref_name, 'feature-') && inputs.operation == 'destroy' && inputs.confirm_destroy == 'DESTROY'
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Destructive operation warning
+        run: |
+          echo "::warning title=DESTRUCTIVE OPERATION::Terraform will destroy the dev feature environment."
+          echo "## WARNING: DESTROY DEV" >> "$GITHUB_STEP_SUMMARY"
+          echo "Terraform destroy will permanently remove managed dev resources." >> "$GITHUB_STEP_SUMMARY"
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Initialize Terraform
+        working-directory: environments/dev
+        run: terraform init -input=false -reconfigure
+      - name: Destroy dev infrastructure
+        working-directory: environments/dev
+        run: terraform destroy -input=false -auto-approve
