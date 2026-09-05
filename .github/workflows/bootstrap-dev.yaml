@@ -21,6 +21,8 @@ jobs:
     if: inputs.confirm == 'bootstrap-dev'
     runs-on: ubuntu-latest
     environment: dev
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
 
     steps:
       - name: Checkout
@@ -30,7 +32,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -42,7 +44,7 @@ jobs:
       - name: Apply shared infrastructure
         working-directory: environments/dev
         env:
-          TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
           TF_VAR_cluster_name: ${{ vars.CLUSTER_NAME }}
           TF_VAR_network_name: ${{ vars.NETWORK_NAME }}
           TF_VAR_tf_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
@@ -52,7 +54,7 @@ jobs:
       - name: Upload bootstrap state to S3
         working-directory: environments/dev
         env:
-          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_REGION: ${{ env.AWS_REGION }}
           TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
         run: aws s3 cp terraform.tfstate "s3://${TF_STATE_BUCKET_NAME}/fit-infra/dev/terraform.tfstate" --region "${AWS_REGION}"
 
