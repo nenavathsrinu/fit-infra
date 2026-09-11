@@ -80,6 +80,7 @@ jobs:
           echo "- Plan: ${PLAN_RESULT}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Apply: ${APPLY_RESULT}" >> "$GITHUB_STEP_SUMMARY"
       - name: Send deployment email
+        if: ${{ secrets.SMTP_SERVER != '' && secrets.SMTP_USERNAME != '' && secrets.SMTP_PASSWORD != '' }}
         uses: dawidd6/action-send-mail@v4
         with:
           server_address: ${{ secrets.SMTP_SERVER }}

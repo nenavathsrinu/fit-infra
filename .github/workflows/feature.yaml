@@ -103,6 +103,7 @@ jobs:
             curl --fail --silent --show-error -X POST -H 'Content-type: application/json' --data "{\"text\":\"fit-infra dev: plan=${PLAN_RESULT}, apply=${APPLY_RESULT}\"}" "$SLACK_WEBHOOK_URL"
           fi
       - name: Send deployment email
+        if: ${{ secrets.SMTP_SERVER != '' && secrets.SMTP_USERNAME != '' && secrets.SMTP_PASSWORD != '' }}
         uses: dawidd6/action-send-mail@v4
         with:
           server_address: ${{ secrets.SMTP_SERVER }}
