@@ -1,9 +1,12 @@
 name: Deploy prod infrastructure
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
+    inputs:
+      release_number:
+        description: Release number generated from the release workflow (example: v1.2.3)
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -14,14 +17,42 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  plan-prod:
-    name: Plan prod
-    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+  validate-prod:
+    name: Stage 1 - Validate prod
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: production
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
     steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+      - name: Initialize Terraform
+        working-directory: environments/prod
+        run: terraform init -input=false -reconfigure
+      - name: Validate Terraform
+        working-directory: environments/prod
+        run: terraform validate
+
+  plan-prod:
+    name: Stage 2 - Plan prod
+    needs: validate-prod
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      RELEASE_NUMBER: ${{ inputs.release_number }}
+    steps:
+      - name: Validate release number
+        run: |
+          echo "Using release number: ${RELEASE_NUMBER}"
+          echo "## Release Number" >> "$GITHUB_STEP_SUMMARY"
+          echo "${RELEASE_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v5
       - uses: aws-actions/configure-aws-credentials@v5
         with:
@@ -40,13 +71,14 @@ jobs:
           path: environments/prod/tfplan
 
   apply-prod:
-    name: Apply prod
-    needs: plan-prod
-    if: needs.plan-prod.result == 'success' && (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
+    name: Stage 3 - Apply prod
+    needs: [validate-prod, plan-prod]
+    if: needs.plan-prod.result == 'success' && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: production
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
+      RELEASE_NUMBER: ${{ inputs.release_number }}
     steps:
       - uses: actions/checkout@v5
       - uses: aws-actions/configure-aws-credentials@v5
@@ -66,17 +98,19 @@ jobs:
         run: terraform apply -input=false tfplan
 
   notify-prod:
-    name: Notify prod deployment
-    needs: [plan-prod, apply-prod]
-    if: always() && (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
+    name: Stage 4 - Notify prod deployment
+    needs: [validate-prod, plan-prod, apply-prod]
+    if: always() && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Publish result
         env:
           PLAN_RESULT: ${{ needs.plan-prod.result }}
           APPLY_RESULT: ${{ needs.apply-prod.result }}
+          RELEASE_NUMBER: ${{ inputs.release_number }}
         run: |
           echo "## Production deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Release Number: ${RELEASE_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Plan: ${PLAN_RESULT}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Apply: ${APPLY_RESULT}" >> "$GITHUB_STEP_SUMMARY"
       - name: Send deployment email

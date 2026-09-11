@@ -25,8 +25,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate-dev:
+    name: Stage 1 - Validate dev
+    if: startsWith(github.ref_name, 'feature-') && inputs.operation == 'apply'
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+      - name: Initialize Terraform
+        working-directory: environments/dev
+        run: terraform init -input=false -reconfigure
+      - name: Validate Terraform
+        working-directory: environments/dev
+        run: terraform validate
+
   plan-dev:
-    name: Plan dev
+    name: Stage 2 - Plan dev
+    needs: validate-dev
     if: startsWith(github.ref_name, 'feature-') && inputs.operation == 'apply'
     runs-on: ubuntu-latest
     environment: dev
@@ -53,8 +76,8 @@ jobs:
           path: environments/dev/tfplan
 
   apply-dev:
-    name: Apply dev
-    needs: plan-dev
+    name: Stage 3 - Apply dev
+    needs: [validate-dev, plan-dev]
     if: needs.plan-dev.result == 'success' && inputs.operation == 'apply'
     runs-on: ubuntu-latest
     environment: dev
@@ -80,8 +103,8 @@ jobs:
         run: terraform apply -input=false tfplan
 
   notify-dev:
-    name: Notify dev deployment
-    needs: [plan-dev, apply-dev]
+    name: Stage 4 - Notify dev deployment
+    needs: [validate-dev, plan-dev, apply-dev]
     if: always() && inputs.operation == 'apply'
     runs-on: ubuntu-latest
     steps:
@@ -118,7 +141,7 @@ jobs:
             Apply: ${{ needs.apply-dev.result }}
 
   destroy-dev:
-    name: Destroy dev
+    name: Stage 5 - Destroy dev
     if: startsWith(github.ref_name, 'feature-') && inputs.operation == 'destroy' && inputs.confirm_destroy == 'DESTROY'
     runs-on: ubuntu-latest
     environment: dev

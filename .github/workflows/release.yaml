@@ -19,6 +19,10 @@ on:
         description: Type DESTROY only when destroying devint
         required: false
         type: string
+      release_number:
+        description: Optional release number override
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -29,15 +33,45 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  plan-devint:
-    name: Plan devint
+  prepare-release:
+    name: Stage 1 - Prepare release
     if: >-
       (github.event_name == 'pull_request' && github.event.pull_request.merged == true && startsWith(github.base_ref, 'release-')) ||
       (github.event_name == 'workflow_dispatch' && inputs.operation == 'apply')
     runs-on: ubuntu-latest
+    outputs:
+      release_number: ${{ steps.release.outputs.release_number }}
+    steps:
+      - id: release
+        shell: bash
+        env:
+          INPUT_RELEASE_NUMBER: ${{ inputs.release_number }}
+        run: |
+          if [ -n "$INPUT_RELEASE_NUMBER" ]; then
+            RELEASE_NUMBER="$INPUT_RELEASE_NUMBER"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            RELEASE_NUMBER="v1.2.${{ github.run_number }}"
+          else
+            RELEASE_NUMBER="v1.2.${{ github.run_number }}"
+          fi
+          echo "release_number=$RELEASE_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "Release Number: $RELEASE_NUMBER"
+          echo "## Release Number" >> "$GITHUB_STEP_SUMMARY"
+          echo "$RELEASE_NUMBER" >> "$GITHUB_STEP_SUMMARY"
+
+  plan-devint:
+    name: Stage 2 - Plan devint
+    needs: prepare-release
+    if: >-
+      needs.prepare-release.result == 'success' && (
+        (github.event_name == 'pull_request' && github.event.pull_request.merged == true && startsWith(github.base_ref, 'release-')) ||
+        (github.event_name == 'workflow_dispatch' && inputs.operation == 'apply')
+      )
+    runs-on: ubuntu-latest
     environment: devint
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
+      RELEASE_NUMBER: ${{ needs.prepare-release.outputs.release_number }}
     steps:
       - uses: actions/checkout@v5
       - uses: aws-actions/configure-aws-credentials@v5
@@ -57,10 +91,10 @@ jobs:
           path: environments/devint/tfplan
 
   apply-devint:
-    name: Apply devint
-    needs: plan-devint
+    name: Stage 3 - Apply devint
+    needs: [prepare-release, plan-devint]
     if: >-
-      needs.plan-devint.result == 'success' && (
+      needs.plan-devint.result == 'success' && needs.prepare-release.result == 'success' && (
         (github.event_name == 'pull_request' && github.event.pull_request.merged == true && startsWith(github.base_ref, 'release-')) ||
         (github.event_name == 'workflow_dispatch' && inputs.operation == 'apply')
       )
@@ -68,6 +102,7 @@ jobs:
     environment: devint
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
+      RELEASE_NUMBER: ${{ needs.prepare-release.outputs.release_number }}
     steps:
       - uses: actions/checkout@v5
       - uses: aws-actions/configure-aws-credentials@v5
@@ -87,10 +122,10 @@ jobs:
         run: terraform apply -input=false tfplan
 
   notify-devint:
-    name: Notify devint deployment
-    needs: [plan-devint, apply-devint]
+    name: Stage 4 - Notify devint deployment
+    needs: [prepare-release, plan-devint, apply-devint]
     if: >-
-      always() && (
+      always() && needs.prepare-release.result == 'success' && (
         (github.event_name == 'pull_request' && github.event.pull_request.merged == true && startsWith(github.base_ref, 'release-')) ||
         (github.event_name == 'workflow_dispatch' && inputs.operation == 'apply')
       )
@@ -100,8 +135,10 @@ jobs:
         env:
           PLAN_RESULT: ${{ needs.plan-devint.result }}
           APPLY_RESULT: ${{ needs.apply-devint.result }}
+          RELEASE_NUMBER: ${{ needs.prepare-release.outputs.release_number }}
         run: |
           echo "## Devint deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Release Number: ${RELEASE_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Plan: ${PLAN_RESULT}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Apply: ${APPLY_RESULT}" >> "$GITHUB_STEP_SUMMARY"
       - name: Send deployment email
@@ -120,7 +157,7 @@ jobs:
             Apply: ${{ needs.apply-devint.result }}
 
   destroy-devint:
-    name: Destroy devint
+    name: Stage 5 - Destroy devint
     if: github.event_name == 'workflow_dispatch' && inputs.operation == 'destroy' && inputs.confirm_destroy == 'DESTROY'
     runs-on: ubuntu-latest
     environment: devint
