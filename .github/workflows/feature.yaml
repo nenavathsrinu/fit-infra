@@ -111,7 +111,7 @@ jobs:
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: fit-infra dev deployment
           to: alexinvi@gmail.com
-          from: ${{ secrets.SMTP_FROM }}
+          from: ${{ secrets.SMTP_FROM || secrets.SMTP_USERNAME }}
           body: |
             Dev deployment completed.
             Plan: ${{ needs.plan-dev.result }}
