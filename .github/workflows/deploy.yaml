@@ -1,8 +1,8 @@
 name: Deploy prod infrastructure
 
 on:
-  push:
-    branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,7 @@ concurrency:
 jobs:
   plan-prod:
     name: Plan prod
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -42,7 +42,7 @@ jobs:
   apply-prod:
     name: Apply prod
     needs: plan-prod
-    if: needs.plan-prod.result == 'success'
+    if: needs.plan-prod.result == 'success' && (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -68,7 +68,7 @@ jobs:
   notify-prod:
     name: Notify prod deployment
     needs: [plan-prod, apply-prod]
-    if: always()
+    if: always() && (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       - name: Publish result

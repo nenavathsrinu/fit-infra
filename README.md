@@ -5,7 +5,7 @@ This repository owns shared AWS infrastructure used by `fit-eks` and `fiteks-api
 ## Layout
 
 ```text
-modules/vpc.tf           VPC, subnets, NAT, and route tables
+modules/vpc.tf           VPC, subnets, and route tables
 modules/iam.tf           EKS control plane and node IAM roles
 environments/dev/        Development composition and inputs
 environments/devint/     Development integration composition and inputs
